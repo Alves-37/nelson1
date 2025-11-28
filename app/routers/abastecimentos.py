@@ -35,7 +35,10 @@ async def _get_usuario(db: AsyncSession, usuario_id: str | None) -> User | None:
 async def listar_abastecimentos(db: AsyncSession = Depends(get_db_session)):
     result = await db.execute(
         select(Abastecimento)
-        .options(selectinload(Abastecimento.itens))
+        .options(
+            selectinload(Abastecimento.itens),
+            selectinload(Abastecimento.usuario),
+        )
         .order_by(Abastecimento.created_at.desc())
     )
     abastecimentos = result.scalars().all()
@@ -47,7 +50,10 @@ async def obter_abastecimento(abastecimento_id: str, db: AsyncSession = Depends(
     uuid_obj = _parse_uuid(abastecimento_id, "abastecimento_id")
     result = await db.execute(
         select(Abastecimento)
-        .options(selectinload(Abastecimento.itens))
+        .options(
+            selectinload(Abastecimento.itens),
+            selectinload(Abastecimento.usuario),
+        )
         .where(Abastecimento.id == uuid_obj)
     )
     abastecimento = result.scalar_one_or_none()
