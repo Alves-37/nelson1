@@ -49,6 +49,7 @@ class AbastecimentoResponse(AbastecimentoBase):
     created_at: datetime
     updated_at: datetime
     itens: List[ItemAbastecimentoResponse] = Field(default_factory=list)
+    usuario_nome: Optional[str] = None
 
     @field_validator("id", "usuario_id", mode="before")
     @classmethod

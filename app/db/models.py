@@ -168,6 +168,10 @@ class Abastecimento(DeclarativeBase):
     usuario: Mapped[Optional["User"]] = relationship("User")
     itens: Mapped[list["ItemAbastecimento"]] = relationship("ItemAbastecimento", back_populates="abastecimento")
 
+    @property
+    def usuario_nome(self) -> Optional[str]:
+        return self.usuario.nome if self.usuario else None
+
 
 class ItemAbastecimento(DeclarativeBase):
     """Itens individuais pertencentes a um abastecimento."""
