@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from typing import List
 import uuid
 
@@ -32,7 +33,11 @@ async def _get_usuario(db: AsyncSession, usuario_id: str | None) -> User | None:
 
 @router.get("/", response_model=List[AbastecimentoResponse])
 async def listar_abastecimentos(db: AsyncSession = Depends(get_db_session)):
-    result = await db.execute(select(Abastecimento).order_by(Abastecimento.created_at.desc()))
+    result = await db.execute(
+        select(Abastecimento)
+        .options(selectinload(Abastecimento.itens))
+        .order_by(Abastecimento.created_at.desc())
+    )
     abastecimentos = result.scalars().all()
     return [AbastecimentoResponse.model_validate(a) for a in abastecimentos]
 
@@ -40,7 +45,11 @@ async def listar_abastecimentos(db: AsyncSession = Depends(get_db_session)):
 @router.get("/{abastecimento_id}", response_model=AbastecimentoResponse)
 async def obter_abastecimento(abastecimento_id: str, db: AsyncSession = Depends(get_db_session)):
     uuid_obj = _parse_uuid(abastecimento_id, "abastecimento_id")
-    result = await db.execute(select(Abastecimento).where(Abastecimento.id == uuid_obj))
+    result = await db.execute(
+        select(Abastecimento)
+        .options(selectinload(Abastecimento.itens))
+        .where(Abastecimento.id == uuid_obj)
+    )
     abastecimento = result.scalar_one_or_none()
     if not abastecimento:
         raise HTTPException(status_code=404, detail="Abastecimento não encontrado")
