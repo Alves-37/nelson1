@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -37,10 +38,24 @@ app = FastAPI(
 )
 
 # CORS (Cross-Origin Resource Sharing)
+default_origins = [
+    "https://neopdv1.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:4173",
+]
+
+env_origins = os.getenv("CORS_ALLOW_ORIGINS")
+if env_origins:
+    allowed_origins = [origin.strip() for origin in env_origins.split(",") if origin.strip()]
+else:
+    allowed_origins = default_origins
+
+allow_credentials = "*" not in allowed_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for hybrid client access
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
