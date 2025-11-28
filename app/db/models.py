@@ -154,5 +154,36 @@ class PagamentoDivida(DeclarativeBase):
     usuario: Mapped[Optional["User"]] = relationship("User")
 
 
+class Abastecimento(DeclarativeBase):
+    """Registro de entrada de produtos em estoque."""
+
+    __tablename__ = "abastecimentos"
+
+    fornecedor_nome: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    fornecedor_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    usuario_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=True)
+    observacoes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    total: Mapped[float] = mapped_column(Float, default=0.0)
+
+    usuario: Mapped[Optional["User"]] = relationship("User")
+    itens: Mapped[list["ItemAbastecimento"]] = relationship("ItemAbastecimento", back_populates="abastecimento")
+
+
+class ItemAbastecimento(DeclarativeBase):
+    """Itens individuais pertencentes a um abastecimento."""
+
+    __tablename__ = "itens_abastecimento"
+
+    abastecimento_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("abastecimentos.id"), nullable=False)
+    produto_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("produtos.id"), nullable=False)
+    quantidade: Mapped[float] = mapped_column(Float, nullable=False)
+    preco_custo: Mapped[float] = mapped_column(Float, nullable=False)
+    preco_venda: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    subtotal: Mapped[float] = mapped_column(Float, nullable=False)
+
+    abastecimento: Mapped["Abastecimento"] = relationship("Abastecimento", back_populates="itens")
+    produto: Mapped["Produto"] = relationship("Produto")
+
+
 # Adicionar relacionamentos reversos
 Cliente.vendas = relationship("Venda", back_populates="cliente")
