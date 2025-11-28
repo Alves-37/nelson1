@@ -5,7 +5,7 @@ from sqlalchemy.future import select
 from sqlalchemy import func
 from app.db.session import AsyncSessionLocal
 from app.db.models import User
-from app.schemas.auth import Token
+from app.schemas.auth import Token, UserPayload
 from app.core.security import create_access_token, verify_password
 
 router = APIRouter()
@@ -39,4 +39,11 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not allowed to access online system")
 
     access_token = create_access_token(data={"sub": user.usuario, "user_id": str(user.id)})
-    return {"access_token": access_token, "token_type": "bearer"}
+    user_payload = UserPayload(
+        id=str(user.id),
+        nome=user.nome,
+        usuario=user.usuario,
+        is_admin=user.is_admin,
+        pode_abastecer=user.pode_abastecer,
+    )
+    return {"access_token": access_token, "token_type": "bearer", "user": user_payload}
