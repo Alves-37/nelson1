@@ -52,6 +52,9 @@ else:
 
 allow_credentials = "*" not in allowed_origins
 
+print(f"[CORS] Allowed origins: {allowed_origins}")
+print(f"[CORS] allow_credentials={allow_credentials}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
