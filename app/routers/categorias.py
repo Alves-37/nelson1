@@ -28,6 +28,9 @@ CATEGORIAS_PADRAO: List[CategoriaOut] = [
     CategoriaOut(id=12, nome="Papelaria", descricao="Cadernos, canetas, pastas e itens de papelaria"),
     CategoriaOut(id=13, nome="Parafusos e Fixadores", descricao="Parafusos, buchas, porcas, arruelas e fixadores"),
     CategoriaOut(id=14, nome="Gráfica", descricao="Serviços de gráfica, impressão especial, banners e materiais similares"),
+
+    # Serviços gerais (sem controle de estoque)
+    CategoriaOut(id=15, nome="Serviços", descricao="Serviços em geral sem controle de estoque"),
 ]
 
 
