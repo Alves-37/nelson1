@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from app.routers import health, produtos, usuarios, clientes, vendas, auth, categorias, ws
 from app.routers import metricas, relatorios, empresa_config, admin, dividas
 from app.routers import abastecimentos
@@ -19,6 +19,45 @@ async def lifespan(app: FastAPI):
             print("Verificando estrutura do PostgreSQL...")
             await conn.run_sync(DeclarativeBase.metadata.create_all)
             print("Estrutura do banco verificada!")
+            # Migração leve para garantir colunas de 'abastecimentos' (produção já pode ter tabela antiga)
+            try:
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS abastecimentos (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        created_at TIMESTAMPTZ DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+                """))
+                # Adicionar colunas se não existirem
+                await conn.execute(text("ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS produto_id UUID"))
+                await conn.execute(text("ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS usuario_id UUID"))
+                await conn.execute(text("ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS quantidade DOUBLE PRECISION"))
+                await conn.execute(text("ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS custo_unitario DOUBLE PRECISION DEFAULT 0"))
+                await conn.execute(text("ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS total_custo DOUBLE PRECISION DEFAULT 0"))
+                await conn.execute(text("ALTER TABLE abastecimentos ADD COLUMN IF NOT EXISTS observacao TEXT"))
+                # Índices básicos
+                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_abast_produto ON abastecimentos(produto_id)"))
+                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_abast_usuario ON abastecimentos(usuario_id)"))
+                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_abast_created ON abastecimentos(created_at)"))
+                # Chaves estrangeiras (em caso de tabelas existentes, usar IF NOT EXISTS no nome evita duplicar)
+                await conn.execute(text("""
+                    DO $$ BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.table_constraints 
+                            WHERE constraint_name = 'fk_abastecimentos_produto') THEN
+                            ALTER TABLE abastecimentos
+                            ADD CONSTRAINT fk_abastecimentos_produto FOREIGN KEY (produto_id) REFERENCES produtos(id);
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.table_constraints 
+                            WHERE constraint_name = 'fk_abastecimentos_usuario') THEN
+                            ALTER TABLE abastecimentos
+                            ADD CONSTRAINT fk_abastecimentos_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id);
+                        END IF;
+                    END $$;
+                """))
+            except Exception as mig_e:
+                print(f"Aviso: falha ao aplicar migração leve de 'abastecimentos': {mig_e}")
 
         # Garantir usuário técnico Neotrix para autoLogin do PDV online
         async with AsyncSessionLocal() as session:
