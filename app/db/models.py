@@ -27,7 +27,7 @@ class User(DeclarativeBase):
 class Produto(DeclarativeBase):
     __tablename__ = "produtos"
 
-    codigo: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
+    codigo: Mapped[Optional[str]] = mapped_column(String(50), unique=True, index=True, nullable=True)
     nome: Mapped[str] = mapped_column(String(200), nullable=False)
     descricao: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     preco_custo: Mapped[float] = mapped_column(Float, default=0.0)

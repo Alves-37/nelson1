@@ -19,6 +19,18 @@ async def lifespan(app: FastAPI):
             print("Verificando estrutura do PostgreSQL...")
             await conn.run_sync(DeclarativeBase.metadata.create_all)
             print("Estrutura do banco verificada!")
+
+            # Migração leve: permitir codigo NULL em produtos (cliente pode enviar codigo vazio)
+            try:
+                await conn.execute(text("""
+                    UPDATE produtos
+                    SET codigo = NULL
+                    WHERE codigo IS NOT NULL AND BTRIM(codigo) = ''
+                """))
+                await conn.execute(text("ALTER TABLE produtos ALTER COLUMN codigo DROP NOT NULL"))
+            except Exception as mig_prod_e:
+                print(f"Aviso: migração leve de 'produtos.codigo' falhou: {mig_prod_e}")
+
             # Migração leve para a tabela 'abastecimentos'
             try:
                 await conn.execute(text("""

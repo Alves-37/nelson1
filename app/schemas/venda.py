@@ -3,6 +3,11 @@ from typing import Optional, List
 from datetime import datetime
 import uuid
 
+
+_MODEL_CONFIG_IGNORE_EXTRA = {
+    "extra": "ignore",
+}
+
 class ItemVendaBase(BaseModel):
     produto_id: str
     quantidade: int = Field(..., ge=0)
@@ -10,6 +15,8 @@ class ItemVendaBase(BaseModel):
     # Permitir zero para compatibilidade com dados antigos
     preco_unitario: float = Field(..., ge=0)
     subtotal: float = Field(..., ge=0)
+
+    model_config = _MODEL_CONFIG_IGNORE_EXTRA
 
 class ItemVendaCreate(ItemVendaBase):
     pass
@@ -45,24 +52,31 @@ class ItemVendaResponse(ItemVendaBase):
 class VendaBase(BaseModel):
     usuario_id: Optional[str] = None
     cliente_id: Optional[str] = None
-    total: float = Field(..., gt=0)
+    # Observação: alguns fluxos de cancelamento/devolução podem enviar total=0.
+    total: float = Field(..., ge=0)
     desconto: Optional[float] = Field(0.0, ge=0)
     forma_pagamento: str = Field(..., min_length=1, max_length=50)
     observacoes: Optional[str] = None
+
+    model_config = _MODEL_CONFIG_IGNORE_EXTRA
 
 class VendaCreate(VendaBase):
     uuid: Optional[str] = None
     itens: Optional[List[ItemVendaCreate]] = Field(default_factory=list)
     created_at: Optional[datetime] = None
 
+    model_config = _MODEL_CONFIG_IGNORE_EXTRA
+
 class VendaUpdate(BaseModel):
     usuario_id: Optional[str] = None
     cliente_id: Optional[str] = None
-    total: Optional[float] = Field(None, gt=0)
+    total: Optional[float] = Field(None, ge=0)
     desconto: Optional[float] = Field(None, ge=0)
     forma_pagamento: Optional[str] = Field(None, min_length=1, max_length=50)
     observacoes: Optional[str] = None
     cancelada: Optional[bool] = None
+
+    model_config = _MODEL_CONFIG_IGNORE_EXTRA
 
 class VendaResponse(VendaBase):
     id: str

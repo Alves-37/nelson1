@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/produtos", tags=["Produtos"])
 
 # Schemas Pydantic
 class ProdutoCreate(BaseModel):
-    codigo: str
+    codigo: Optional[str] = None
     nome: str
     descricao: str = ""
     preco_custo: float = 0.0
@@ -45,7 +45,7 @@ class ProdutoUpdate(BaseModel):
 
 class ProdutoResponse(BaseModel):
     id: str
-    codigo: str
+    codigo: Optional[str] = None
     nome: str
     descricao: str = None
     preco_custo: float
@@ -67,7 +67,7 @@ class ProdutoResponse(BaseModel):
     def from_orm(cls, obj):
         return cls(
             id=str(obj.id),
-            codigo=obj.codigo,
+            codigo=getattr(obj, 'codigo', None),
             nome=obj.nome,
             descricao=obj.descricao,
             preco_custo=obj.preco_custo,
@@ -135,6 +135,11 @@ async def get_produto(produto_uuid: str, db: AsyncSession = Depends(get_db_sessi
 async def create_produto(produto_data: ProdutoCreate, db: AsyncSession = Depends(get_db_session)):
     """Cria novo produto."""
     try:
+        # Normalizar codigo (cliente pode enviar string vazia)
+        codigo_norm = produto_data.codigo
+        if isinstance(codigo_norm, str) and codigo_norm.strip() == "":
+            codigo_norm = None
+
         # Gerar UUID se não fornecido
         produto_uuid = uuid.UUID(produto_data.uuid) if produto_data.uuid else uuid.uuid4()
         
@@ -151,7 +156,7 @@ async def create_produto(produto_data: ProdutoCreate, db: AsyncSession = Depends
         # Criar produto
         produto = Produto(
             id=produto_uuid,
-            codigo=produto_data.codigo,
+            codigo=codigo_norm,
             nome=produto_data.nome,
             descricao=produto_data.descricao,
             preco_custo=produto_data.preco_custo,
@@ -223,6 +228,9 @@ async def update_produto(
         
         # Atualizar campos fornecidos
         update_data = produto_data.dict(exclude_unset=True)
+        # Normalizar codigo (cliente pode enviar string vazia)
+        if 'codigo' in update_data and isinstance(update_data.get('codigo'), str) and update_data.get('codigo').strip() == "":
+            update_data['codigo'] = None
         if update_data:
             update_data['updated_at'] = datetime.utcnow()
             
@@ -337,6 +345,11 @@ async def sync_push_produtos(
         for produto_data in produtos:
             try:
                 produto_uuid = uuid.UUID(produto_data['uuid'])
+
+                # Normalizar codigo (cliente pode enviar string vazia)
+                codigo_norm = produto_data.get('codigo', None)
+                if isinstance(codigo_norm, str) and codigo_norm.strip() == "":
+                    codigo_norm = None
                 
                 # Verificar se produto já existe
                 result = await db.execute(
@@ -347,7 +360,7 @@ async def sync_push_produtos(
                 if existing:
                     # Atualizar produto existente
                     update_data = {
-                        'codigo': produto_data.get('codigo', ''),
+                        'codigo': codigo_norm,
                         'nome': produto_data['nome'],
                         'descricao': produto_data.get('descricao', ''),
                         'preco_custo': produto_data.get('preco_custo', 0),
@@ -370,7 +383,7 @@ async def sync_push_produtos(
                     # Criar novo produto
                     produto = Produto(
                         id=produto_uuid,
-                        codigo=produto_data.get('codigo', ''),
+                        codigo=codigo_norm,
                         nome=produto_data['nome'],
                         descricao=produto_data.get('descricao', ''),
                         preco_custo=produto_data.get('preco_custo', 0),
