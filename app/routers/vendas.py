@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 from typing import List
 import uuid
 from datetime import datetime
+from pydantic import ValidationError
 
 from ..db.database import get_db_session
 from sqlalchemy.exc import IntegrityError
@@ -156,6 +157,17 @@ async def criar_venda(venda: VendaCreate, db: AsyncSession = Depends(get_db_sess
         await db.commit()
         await db.refresh(nova_venda)
 
+        # Recarregar com relacionamentos para evitar falhas de serialização/response validation
+        try:
+            result_full = await db.execute(
+                select(Venda)
+                .options(selectinload(Venda.itens), selectinload(Venda.cliente), selectinload(Venda.usuario))
+                .where(Venda.id == nova_venda.id)
+            )
+            venda_full = result_full.scalar_one_or_none() or nova_venda
+        except Exception:
+            venda_full = nova_venda
+
         # Broadcast evento em tempo real para clientes conectados
         try:
             payload = {
@@ -174,7 +186,16 @@ async def criar_venda(venda: VendaCreate, db: AsyncSession = Depends(get_db_sess
             # Não falhar a requisição caso broadcast dê erro
             pass
 
-        return nova_venda
+        try:
+            try:
+                setattr(venda_full, 'usuario_nome', getattr(getattr(venda_full, 'usuario', None), 'nome', None))
+            except Exception:
+                setattr(venda_full, 'usuario_nome', None)
+            return VendaResponse.model_validate(venda_full)
+        except ValidationError as ve:
+            # Quando a validação de response falha, o FastAPI normalmente retorna 500 genérico.
+            # Fornecemos detail explícito para diagnosticar payload/model.
+            raise HTTPException(status_code=500, detail=f"Falha ao serializar resposta da venda: {str(ve)}")
     except HTTPException as he:
         # Propagar erros HTTP explícitos (ex.: produto inexistente -> 400)
         await db.rollback()

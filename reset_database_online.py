@@ -21,6 +21,15 @@ class DatabaseReset:
         public_url = os.getenv('DATABASE_PUBLIC_URL')
         internal_url = os.getenv('DATABASE_URL')
 
+        # Fallback: usar defaults do backend (app.core.config.settings) caso não existam variáveis no ambiente
+        if not public_url and not internal_url:
+            try:
+                from app.core.config import settings
+                public_url = getattr(settings, 'DATABASE_PUBLIC_URL', None)
+                internal_url = getattr(settings, 'DATABASE_URL', None)
+            except Exception:
+                pass
+
         self.database_url = public_url or internal_url
         if not self.database_url:
             raise ValueError(
@@ -295,7 +304,7 @@ class DatabaseReset:
         except Exception as e:
             print(f"❌ Erro ao criar usuário admin: {e}")
     
-    async def reset_complete(self):
+    async def reset_complete(self, create_admin: bool = False):
         """Reset completo do banco de dados"""
         print("🚨 INICIANDO RESET COMPLETO DO BANCO DE DADOS ONLINE")
         print("=" * 60)
@@ -307,38 +316,46 @@ class DatabaseReset:
             # 2. Limpar dados (preservar estrutura real do backend)
             await self.truncate_all_tables()
 
-            # 3. Criar usuário admin padrão
-            await self.create_admin_user()
+            # 3. (Opcional) Criar usuário admin padrão
+            if create_admin:
+                await self.create_admin_user()
             
             print("=" * 60)
             print("✅ RESET COMPLETO CONCLUÍDO COM SUCESSO!")
             print("📊 Resumo:")
             print(f"   - Backup realizado: {len(backup_data)} tabelas")
             print("   - Todas as tabelas foram truncadas (dados removidos)")
-            print("   - Usuário admin foi recriado automaticamente")
+            if create_admin:
+                print("   - Usuário admin foi recriado automaticamente")
+            else:
+                print("   - Usuário admin: NÃO criado (opcional)")
             
         except Exception as e:
             print(f"❌ ERRO NO RESET: {e}")
             raise
     
-    async def reset_data_only(self):
+    async def reset_data_only(self, create_admin: bool = False):
         """Reset apenas dos dados (manter estrutura)"""
-        print("🧹 INICIANDO LIMPEZA DOS DADOS (manter estrutura)")
+        print("🧹 INICIANDO LIMPEZA DE DADOS DO BANCO ONLINE")
         print("=" * 60)
         
         try:
             # Fazer backup
             backup_data = await self.backup_data()
 
-            # Limpar dados de todas as tabelas e recriar admin
+            # Limpar dados de todas as tabelas e (opcionalmente) recriar admin
             await self.truncate_all_tables()
-            await self.create_admin_user()
+            if create_admin:
+                await self.create_admin_user()
             
             print("=" * 60)
             print("✅ LIMPEZA DE DADOS CONCLUÍDA!")
             print("   - Estrutura das tabelas mantida")
             print("   - Todos os dados removidos")
-            print("   - Usuário admin foi recriado automaticamente")
+            if create_admin:
+                print("   - Usuário admin foi recriado automaticamente")
+            else:
+                print("   - Usuário admin: NÃO criado (opcional)")
             
         except Exception as e:
             print(f"❌ ERRO NA LIMPEZA: {e}")
@@ -363,6 +380,14 @@ def confirm_action(action_name):
     print("✅ Confirmação recebida. Iniciando operação...")
     return True
 
+def ask_create_admin() -> bool:
+    """Pergunta se deseja criar um usuário admin padrão após o reset."""
+    try:
+        resp = input("\nDeseja criar usuário admin padrão após o reset? (s/N): ").strip().lower()
+        return resp in ('s', 'sim', 'y', 'yes')
+    except Exception:
+        return False
+
 async def main():
     """Função principal"""
     print("🗄️  SCRIPT DE RESET DO BANCO POSTGRESQL ONLINE")
@@ -370,12 +395,34 @@ async def main():
     
     if len(sys.argv) < 2:
         print("Uso:")
-        print("  python reset_database_online.py complete    # Reset completo")
-        print("  python reset_database_online.py data        # Limpar apenas dados")
-        print("  python reset_database_online.py check       # Verificar conexão")
+        print("  python reset_database_online.py complete              # Reset completo (NÃO cria admin)")
+        print("  python reset_database_online.py complete --with-admin  # Reset completo (cria admin)")
+        print("  python reset_database_online.py data                  # Limpar apenas dados (NÃO cria admin)")
+        print("  python reset_database_online.py data --with-admin      # Limpar apenas dados (cria admin)")
+        print("  python reset_database_online.py check                 # Verificar conexão")
+        print("\nAlternativa via ENV:")
+        print("  set RESET_CREATE_ADMIN=1  (Windows)\n  export RESET_CREATE_ADMIN=1  (Linux/macOS)")
         return
     
     action = sys.argv[1].lower()
+
+    # Por padrão NÃO criamos admin. Só quando explicitado.
+    create_admin = False
+    explicit_admin_choice = False
+    try:
+        args = [a.strip().lower() for a in sys.argv[2:]]
+        if '--with-admin' in args or 'with-admin' in args:
+            create_admin = True
+            explicit_admin_choice = True
+    except Exception:
+        pass
+    try:
+        env_flag = (os.getenv('RESET_CREATE_ADMIN', '') or '').strip().lower()
+        if env_flag in ('1', 'true', 'yes', 'y', 'on'):
+            create_admin = True
+            explicit_admin_choice = True
+    except Exception:
+        pass
     
     # Verificar se o arquivo .env existe
     # .env é opcional: podemos usar variáveis do ambiente do shell
@@ -394,11 +441,15 @@ async def main():
             
         elif action == 'complete':
             if confirm_action("fazer RESET COMPLETO do banco"):
-                await reset_db.reset_complete()
+                if not explicit_admin_choice:
+                    create_admin = ask_create_admin()
+                await reset_db.reset_complete(create_admin=create_admin)
                 
         elif action == 'data':
             if confirm_action("LIMPAR TODOS OS DADOS do banco"):
-                await reset_db.reset_data_only()
+                if not explicit_admin_choice:
+                    create_admin = ask_create_admin()
+                await reset_db.reset_data_only(create_admin=create_admin)
                 
         else:
             print(f"❌ Ação '{action}' não reconhecida")
