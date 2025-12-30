@@ -160,6 +160,45 @@ async def bulk_create_abastecimentos(payload: AbastecimentoBulkIn, db: AsyncSess
                     except ValueError:
                         usuario_uuid = None
 
+                # Deduplicação defensiva:
+                # O PDV3 envia "local_id" do SQLite local (não é globalmente único), então
+                # não dá para impor unicidade global só por local_id. Porém, para evitar
+                # somar estoque duas vezes quando o mesmo item é reenviado, usamos uma
+                # chave determinística quando `created_at` vier preenchido.
+                #
+                # Critério (quando created_at existe):
+                # (produto_id, usuario_id, quantidade, custo_unitario, total_custo, created_at)
+                #
+                # Se já existir um registro igual, consideramos idempotente: aceitamos
+                # o local_id e não inserimos nada (nem mexemos no estoque).
+                if item.created_at:
+                    try:
+                        qtd_f = float(item.quantidade)
+                        cu_f = float(item.custo_unitario)
+                        tc_f = float(item.total_custo) if item.total_custo is not None else (qtd_f * cu_f)
+                        dup_q = (
+                            select(Abastecimento.id)
+                            .where(Abastecimento.produto_id == produto_obj.id)
+                            .where(Abastecimento.quantidade == qtd_f)
+                            .where(Abastecimento.custo_unitario == cu_f)
+                            .where(Abastecimento.total_custo == tc_f)
+                            .where(Abastecimento.created_at == item.created_at)
+                        )
+                        if usuario_uuid is None:
+                            dup_q = dup_q.where(Abastecimento.usuario_id.is_(None))
+                        else:
+                            dup_q = dup_q.where(Abastecimento.usuario_id == usuario_uuid)
+
+                        dup_res = await db.execute(dup_q.limit(1))
+                        dup_id = dup_res.scalar_one_or_none()
+                        if dup_id is not None:
+                            if item.local_id is not None:
+                                accepted.append(str(item.local_id))
+                            continue
+                    except Exception:
+                        # Se a dedupe falhar, segue fluxo normal.
+                        pass
+
                 total_custo = item.total_custo if item.total_custo is not None else (float(item.quantidade) * float(item.custo_unitario))
                 total_val = float(item.quantidade) * float(item.custo_unitario)
 
