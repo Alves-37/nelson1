@@ -173,6 +173,13 @@ async def bulk_create_abastecimentos(payload: AbastecimentoBulkIn, db: AsyncSess
                     observacao=item.observacao,
                 )
 
+                # Atualizar estoque do produto (entrada de mercadoria)
+                try:
+                    qtd = float(item.quantidade)
+                except Exception:
+                    qtd = 0.0
+                produto_obj.estoque = float(getattr(produto_obj, "estoque", 0) or 0) + qtd
+
                 db.add(abast)
                 await db.flush()
 
