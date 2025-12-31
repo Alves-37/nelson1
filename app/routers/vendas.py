@@ -181,6 +181,19 @@ async def criar_venda(venda: VendaCreate, db: AsyncSession = Depends(get_db_sess
 
                 # Baixar estoque no servidor
                 try:
+                    nome_prod = str(getattr(produto_db, 'nome', '') or '').strip().lower()
+                    codigo_prod = str(getattr(produto_db, 'codigo', '') or '').strip().lower()
+                    is_servico = False
+                    if codigo_prod.startswith('srv') or codigo_prod.startswith('serv'):
+                        is_servico = True
+                    if ('servi' in nome_prod) or ('impress' in nome_prod):
+                        # cobre "serviço/servico" e "impressão/impressao"
+                        is_servico = True
+
+                    if is_servico:
+                        # Serviços não controlam estoque
+                        continue
+
                     delta = float(quantidade)
                     if bool(getattr(produto_db, 'venda_por_peso', False)):
                         try:
