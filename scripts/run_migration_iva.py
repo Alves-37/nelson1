@@ -33,7 +33,7 @@ async def run():
         raise FileNotFoundError(f"Arquivo SQL não encontrado: {SQL_FILE}")
 
     # Tentar usar o mesmo esquema de URL do backend
-    db_url = os.getenv("DATABASE_URL", "")
+    db_url = os.getenv("DATABASE_URL") or os.getenv("DATABASE_PUBLIC_URL") or ""
     if not db_url:
         # fallback: tentar SETTINGS do app, se disponível
         try:
@@ -41,10 +41,6 @@ async def run():
             db_url = settings.DATABASE_URL
         except Exception:
             db_url = ""
-
-    # Fallback final: usar DATABASE_PUBLIC_URL da Railway, se nada mais estiver definido
-    if not db_url:
-        db_url = "postgresql://postgres:eGToQQQrasBZetMsloLDrKdPMvtYctNv@centerbeam.proxy.rlwy.net:10079/railway"
 
     if not db_url:
         raise RuntimeError("DATABASE_URL não definida e nenhum fallback configurado")

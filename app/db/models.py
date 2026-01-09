@@ -2,6 +2,7 @@ from sqlalchemy import Column, String, Boolean, Integer, Float, Text, DateTime, 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB
 from app.db.base import DeclarativeBase
 from datetime import datetime
 from typing import Optional
@@ -176,3 +177,19 @@ class Abastecimento(DeclarativeBase):
 
     produto: Mapped["Produto"] = relationship("Produto")
     usuario: Mapped[Optional["User"]] = relationship("User")
+
+
+class PdvSyncStatus(DeclarativeBase):
+    __tablename__ = "pdv_sync_status"
+
+    pdv_id: Mapped[str] = mapped_column(String(80), unique=True, index=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="unknown")
+    total_enviadas: Mapped[int] = mapped_column(Integer, default=0)
+    total_recebidas: Mapped[int] = mapped_column(Integer, default=0)
+    pending_sales_local: Mapped[int] = mapped_column(Integer, default=0)
+    errors_json: Mapped[dict] = mapped_column(JSONB, default=dict)
+    started_at: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    finished_at: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    app_version: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    device_name: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
