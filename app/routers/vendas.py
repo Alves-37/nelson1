@@ -205,9 +205,9 @@ async def criar_venda(venda: VendaCreate, db: AsyncSession = Depends(get_db_sess
                     is_servico = False
                     if codigo_prod.startswith('srv') or codigo_prod.startswith('serv'):
                         is_servico = True
-                    if ('servi' in nome_prod) or ('impress' in nome_prod):
-                        # cobre "serviço/servico" e "impressão/impressao"
-                        is_servico = True
+
+                    # NÃO inferir serviço pelo texto do nome.
+                    # Essa heurística pode marcar produtos normais como serviço e impedir a baixa de estoque.
 
                     # Categorias alinhadas com PDV3 (ver /api/categorias):
                     # 10=Impressão e Cópias, 14=Gráfica, 15=Serviços

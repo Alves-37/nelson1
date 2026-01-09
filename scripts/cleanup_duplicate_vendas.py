@@ -9,7 +9,7 @@ import psycopg2.extras
 
 
 def get_db_url():
-    url = os.getenv("DATABASE_URL")
+    url = os.getenv("DATABASE_URL") or os.getenv("DATABASE_PUBLIC_URL")
     if not url:
         # tentar carregar de .env em locais padrão
         candidates = [
@@ -29,12 +29,16 @@ def get_db_url():
                             if line.startswith('DATABASE_URL='):
                                 url = line.split('=', 1)[1].strip().strip('"').strip("'")
                                 break
+                            if line.startswith('DATABASE_PUBLIC_URL='):
+                                url = line.split('=', 1)[1].strip().strip('"').strip("'")
+                                break
                 if url:
                     break
             except Exception:
                 pass
     if not url:
-        print("❌ DATABASE_URL não encontrada no ambiente nem em .env")
+        print("❌ Nenhuma variável de conexão encontrada no ambiente nem em .env")
+        print("   - Defina DATABASE_PUBLIC_URL ou DATABASE_URL")
         sys.exit(1)
     if url.startswith("postgresql+asyncpg://"):
         url = url.replace("postgresql+asyncpg://", "postgresql://")

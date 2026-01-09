@@ -31,9 +31,10 @@ from dotenv import load_dotenv
 # Carregar variáveis de ambiente
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("DATABASE_PUBLIC_URL")
 if not DATABASE_URL:
-    print("❌ DATABASE_URL não encontrada no .env")
+    print("❌ Nenhuma variável de conexão encontrada (.env/ambiente)")
+    print("   - Defina DATABASE_PUBLIC_URL ou DATABASE_URL")
     sys.exit(1)
 
 # Converter URL asyncpg para psycopg2 se necessário
