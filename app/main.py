@@ -8,6 +8,7 @@ from app.routers import metricas, relatorios, empresa_config, admin, dividas
 from app.routers import abastecimentos
 from app.routers import pdv_sync
 from app.routers import impressoras
+from app.routers import despesas
 from app.db.session import engine, AsyncSessionLocal
 from app.db.base import DeclarativeBase
 from app.db.models import User, Produto
@@ -212,6 +213,7 @@ app.include_router(dividas.router)
 app.include_router(abastecimentos.router)
 app.include_router(pdv_sync.router)
 app.include_router(impressoras.router)
+app.include_router(despesas.router)
 
 @app.get("/")
 async def read_root():
